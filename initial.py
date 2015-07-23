@@ -8,6 +8,10 @@ from scipy import ndimage
 from scipy.misc import imsave
 from numpy import ndarray
 import matplotlib.pyplot as plt
+from sobel import sobel
+import trial2
+from regiongrow import Rgrow
+import time
 
 '''Notations used
    imw= image width
@@ -26,6 +30,8 @@ def darkenHStrip(img,y1,y2):
  imn.show()
 
 
+
+
 def Resize(img , bw):
  wpercent = (bw/ float(img.size[0]))
  hsize = int((float(img.size[1]) * float(wpercent)))
@@ -36,13 +42,19 @@ def Resize(img , bw):
 def GBinarization(im):
   imw= im.size[0]
   imh= im.size[1]
+  print imw
+  print imh
   hs=im.histogram()
   th=0
+  pix=im.load()
   for i in range(len(hs)):
    th+=i*int(hs[i])
   th=th/(imw*imh)
-  th+=10
-  im = im.point(lambda i: i < th and 255)
+  th=50
+  for i in range(imh):
+    for j in range(imw):
+        if pix[j,i]<th :
+           im.putpixel((j,i),0)
   return im
 
 
@@ -51,8 +63,8 @@ def LBinarization(im):
   imw= im.size[0]
   imh= im.size[1]
   pix=im.load()
-  winw=10
-  winh=10
+  winw=3
+  winh=3
   x=0 
   y=0
   while(x <= (imh-winh)):
@@ -75,85 +87,135 @@ def LBinarization(im):
     x+=winh
   return im 
 
+def PreProcess(im):
+   im=NMode(im)
+   im1 = ndimage.grey_erosion(im, size=(10,10))
+   scipy.misc.imsave("eroded.jpg",im1)
+   im1= Image.open("eroded.jpg")
+ 
+   im=ImageOps.equalize(im,0)
+   im=ImageChops.difference(im1, im)
+   #print ("image height %d and width %d\n"%(imh,imw))
+ 
+ 
+   im=GBinarization(im)#binarize the image
+   return im
 
+#Processing the image
 def Process(i):
- src="cars/EX"+str(i)+".jpg"
+ src="EXE/"+str(i)+".JPG"
  im = Image.open(src)
- im=Resize(im,600)
-  
+ im=Resize(im,400)
  im=im.convert('L') #converts image into grayscale
- 
- im1 = ndimage.grey_erosion(im, size=(15,15))
- scipy.misc.imsave("eroded.jpg",im1)
- im1= Image.open("eroded.jpg")
- im=ImageOps.equalize(im,0)
- im=ImageChops.difference(im1, im)
- imw= im.size[0]
- imh= im.size[1]
- print ("image height %d and width %d\n"%(imh,imw))
- 
- #im=LBinarization(im)#binarize the image
- im=GBinarization(im)
- #making a copy our original image
- new=im.copy()
- new.show()
- pix=new.load()
+ imp=im.copy()
+ #im.show()
+ im=PreProcess(im)
+ #im.show()
 
-
- #storing the values of disturbence along width for each row in array a[i]
- a = ndarray((imh+1,),int)
- a[0]=0
+ Y=trial2.DetermineY(im)
  maxm=0
- x=0
- for i in range(1,imh):
-  a[i]=0;
-  for j in range(1,imw-1):
-     if pix[j,i]!=pix[j+1,i]:
- 	a[i]+=1;
-  if maxm<a[i]:
-    maxm=a[i]
-  #print a[i] 
- #print maxm
- a[imh]=0
- mean=sum(a)/imh
- print mean
- print max(a)
+ max_j=0
+ #trial2.Plot(Y)
  
-
- #finding the most probable value of disturbence
- arr = ndarray((maxm+1,),int)
- for i in range(1,maxm+1):
-    arr[i]=0
- for i in range(i,imh):
-    arr[a[i]]+=1
- #for i in range(1,maxm+1):
-    #print ("%d : %d"%(i,arr[i]))
+ for i in range(150,im.size[1]):
+      if( Y[i]>maxm ):
+           maxm=Y[i]
+           max_j=i
+ #print "------"
+ #print max_j
+ im,top,bottom=Rgrow(im,150,max_j)  
+ #im.show()
  
+ box = (0, top, im.size[0], bottom)
+ area = imp.crop(box)
+ area.show()
+ areacp=area.copy()
+ area=PreProcess(area)
+ #area.show()
+ left,right,top,bottom=trial2.MatchBox(area)
+ box = (left, top-2, right, bottom-2)
+ areacp = areacp.crop(box)
+ areacp=Resize(areacp,400)
+ #areacp.show()
+ pix=areacp.load()
+ for i in range(areacp.size[0]):
+    for j in range(areacp.size[1]):
+        if(pix[i,j]<110):
+           areacp.putpixel((i,j),0)
+        else:
+           areacp.putpixel((i,j),255)
 
- for i in range(1,imh):
-       if a[i]<(max(a)) and a[i]>mean:
-          for  k in range(1,imw):
-             new.putpixel((k,i),0)
-       print ("%d = %d"%(i,a[i]))
- new.show()
+ areacp.show()
+ #areacp= Cleanify(areacp)
+ #areacp.show()
+ return areacp
  
- 
- xarr = ndarray((imh+1,),int)
- for i in range(1,imh):
-   xarr[i]=i
- plt.xlabel(src)
- plt.plot(xarr,list(a))
- plt.axis([0,imh,0,maxm])
- plt.show()
- #darkenHStrip(im,250,300)
- 
+#########################################################################################
 
- 
+def NMode(im):
+  imw= im.size[0]
+  imh= im.size[1]
+  pix=im.load()
+  winw=1
+  winh=1
+  x=0 
+  y=0
+  while(x <= (imh-winh)):
+    y=0
+    while(y<= (imw-winw)):
+         th=0
+         for i in range(x,x+winh):
+            for j in range(y,y+winw):
+               th+= pix[j,i]
+         th=th/(winw*winh)
+         if th<80:       
+          for i in range(x,x+winh):
+            for j in range(y,y+winw):
+                  im.putpixel((j,i),0)
+               
+         y+=winw
+    x+=winh
+  return im
+
+####################################################################################
+
+def Cleanify(im):
+  imw= im.size[0]
+  imh= im.size[1]
+  pix=im.load()
+  winw=3
+  winh=3
+  x=0 
+  y=0
+  while(x <= (imh-winh)):
+    #print x
+    y=0
+    while(y<= (imw-winw)):
+         avg=0
+         for i in range(x,x+winh):
+            for j in range(y,y+winw):
+               avg+= pix[j,i]
+         avg=avg/(winw*winh)   
+         if(avg<126):
+           avg=0
+         else:
+           avg=255  
+         for i in range(x,x+winh):
+            for j in range(y,y+winw):
+                  im.putpixel((j,i),avg)
+               
+         y+=winw
+    x+=winh
+  return im
+####################################################################################
 
 
-
-
-
+   
+   
+   
+   
+  
+  
 
 
 
