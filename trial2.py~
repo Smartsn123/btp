@@ -13,26 +13,6 @@ from sobel import sobel
 #import initial
 from skimage import feature
 
-
-
-def run(i):
- src="EX/EX"+str(i)+".jpg"
-
- im = Image.open(src)
- im=Resize(im,600)
- im=im.convert('L')
- im=FindEdges(im)
- im.show()
- Y1,Y2,count=DetermineY(im)
- print count
- for i in range(1,count+1):
-   #if (Y2[i]-Y1[i])>10 :
-     print str(Y1[i])+" "+str(Y2[i])
-     for j in range(Y1[i],Y2[i]):
-       im=Whiten(im,j)
- im.show()
-
-
 ##########################################################################
 def FindEdges(img):
  imw=img.size[0]
@@ -80,41 +60,74 @@ def DetermineY(img):
  '''    
 ##############################################################################################
 def MatchBox(im):
+  print "Finding candidate region for No plate"
   imw=im.size[0]
   imh=im.size[1]
   pix=im.load()
   boxw=130
   boxh=30
-  WCount = ndarray((imw,),int)
+  Wcount ={}
   i=0
   size=0
-  while(i<(imw-boxw)):
-       WCount[size]=0
-       for j in range (i,i+boxw):
-           for k in range (min(imh,boxh)):
-               if(pix[j,k]>160):
-                   WCount[size]+=1
-       size+=1
-       i+=1 
+  dp=ndarray((imh+1,imw+1),int)
+  #dp that stores no of white pixels from 0,0 to i,j
+  rowc=ndarray((imw+1,),int)
+  for i in range(imh):
+       rowc[0]=0
+       for j in range(imw):
+            if j==0:
+              rowc[j]=(pix[j,i]>140)
+            else :
+              rowc[j]=rowc[j-1]+(pix[j,i]>140)
+
+            if i==0:
+              dp[i,j]=rowc[j]
+            else:
+              dp[i,j]=dp[i-1,j]+rowc[j]
+
+  for i in range(imw-boxw):
+     for j in range(imh-boxh):
+                key=str(i)+" "+str(j)
+                Wcount[key]=dp[j+boxh,i+boxw]
+                if(j>0):
+                   Wcount[key]-=dp[j-1,i+boxw]
+                if(i>0):
+                   Wcount[key]-=dp[j+boxh,i-1]
+                if(i>0 and j>0):
+                   Wcount[key]+=dp[j-1,i-1]
+                
+                  
+   
+
+  '''
+   for i in range(imw-boxw):
+     for j in range(imh-boxh):
+          key=str(i)+" "+str(j)
+          Wcount[key]=0
+          for k in range(i,min(imw,i+boxw)):
+             for l in range(j,min(imh,j+boxh)):
+                if(pix[k,l]>140):
+                    Wcount[key]+=1  
+  '''              
   maxm=-1
   max_x=0
-  for i in range(0,(size)):
-       if(WCount[i]>maxm):
-          maxm=WCount[i]
-          max_x=i
+  max_y=0
+  for key,value in Wcount.iteritems():
+        if(value>maxm):
+             maxm=value
+             max_x,max_y=key.split()
+  max_x=int(max_x)
+  max_y=int(max_y)     
+  
        #print str(i)+" , "+str(i+boxw)+" ,  0 , "+str(boxh)+" : "+str(WCount[i])
   #print"####"
   #print max_x
   #print"####"
-  return max_x+5,max_x+boxw,0,boxh
+  return max_x,max_y,max_x+boxw,max_y+boxh
             
                     
 ###############################################################################################    
-def Whiten(img,y):
-  imw=img.size[0]
-  for i in range(imw):
-    img.putpixel((i,y),255)
-  return img 
+
 ##############################################################################################
 def Plot(arr):
  x=len(arr)
