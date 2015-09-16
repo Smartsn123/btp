@@ -136,17 +136,20 @@ def RegionExt(i):
  #print "------"
  #print max_j
 
-  
+ #Grow the region around the  Y determined from previous step
  im,top,bottom=Rgrow(im,150,max_j)  
  #im.show()
- 
+ #strip the Region grown aroung the maximum Edge Row
  box = (0, top, im.size[0], bottom)
  area = imp.crop(box)
  #area.show()
  areacp=area.copy()
  orig=area.copy()
+ 
+ #PreProcess the Stripped part
  area=PreProcess(area)
  #area.show()
+ #Determine the exact boundries of the no plate region using box matching /box having max white pixels
  left,top,right,bottom=trial2.MatchBox(area)
  box = (left, top-2, right, bottom-2)
  orig=orig.crop(box)
