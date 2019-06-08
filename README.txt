@@ -7,5 +7,5 @@ To test the working
 -goto to the directory btp in terminal 
 -run command "python exp.py"
 -the test images are in Folder EXE
--Segmented results get stored in folder TEST
+- TO see the results kindly see results corresponding to images in : https://github.com/Smartsn123/btp/tree/master/TEST
 
