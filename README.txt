@@ -9,3 +9,6 @@ To test the working
 -the test images are in Folder EXE
 - TO see the results kindly see results corresponding to images in : https://github.com/Smartsn123/btp/tree/master/TEST
 
+
+![alt text](https://raw.githubusercontent.com/Smartsn123/btp/master/Screenshot%202019-06-08%20at%208.11.56%20PM.png)
+
